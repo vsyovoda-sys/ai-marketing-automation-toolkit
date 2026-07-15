@@ -1,0 +1,80 @@
+{
+  "id": "media-production",
+  "version": "1.0.0",
+  "title": "转写、字幕与可复核媒体制作",
+  "audiences": ["自媒体内容创作者", "新媒体运营", "营销内容团队", "办公培训者"],
+  "job_stories": [
+    "当我要把长音视频剪成短内容时，我希望先得到可读时间线并保留人工选段。",
+    "当本机缺少 codec、字体或模型时，我希望得到可验证降级产物，而不是假装视频已经生成。"
+  ],
+  "inputs": [
+    {"name": "media_manifest", "required": true, "rights_required": true, "formats": ["json"], "description": "媒体路径指纹、权利、声音/肖像授权、语言和时长"},
+    {"name": "edit_brief", "required": true, "rights_required": false, "formats": ["md", "json"], "description": "目标时长、比例、字幕、必须保留、禁用和平台规格"}
+  ],
+  "phases": [
+    {
+      "id": "preflight", "title": "权利、能力与降级预检", "type": "assistive", "risk": "high",
+      "depends_on": [], "inputs": ["input:media_manifest", "input:edit_brief"],
+      "outputs": [{"name": "capability_matrix", "required": true}, {"name": "rights_ledger", "required": true}],
+      "checks": [{"name": "media_rights", "required": true}, {"name": "codec_font_tools", "required": true}, {"name": "fallback_declared", "required": true}],
+      "completion": "权利、输入指纹、所需工具和每个缺失能力的降级产物已明确。",
+      "abandon_when": ["声音、肖像或素材权利不明", "输入损坏且无可读轨道"],
+      "retry": {"max_attempts": 2, "change_required": "补授权、转换工作副本或选择降级", "fallback": "只交付人工处理清单"}
+    },
+    {
+      "id": "transcript", "title": "转写与时间对齐", "type": "assistive", "risk": "medium",
+      "depends_on": ["preflight"], "inputs": ["input:media_manifest", "artifact:capability_matrix"],
+      "outputs": [{"name": "transcript", "required": true}, {"name": "alignment_report", "required": true}],
+      "checks": [{"name": "timestamps_monotonic", "required": true}, {"name": "duration_coverage", "required": true}, {"name": "low_confidence_marked", "required": true}],
+      "completion": "时间戳单调、覆盖率达 brief 阈值，低置信片段显式标记。",
+      "abandon_when": ["覆盖率不足且无法人工补录", "时间轴严重漂移"],
+      "retry": {"max_attempts": 2, "change_required": "切换本地模型/音轨或分段处理", "fallback": "输出未对齐转写并停止自动剪辑"}
+    },
+    {
+      "id": "numbered_timeline", "title": "编号时间线与候选片段", "type": "assistive", "risk": "medium",
+      "depends_on": ["transcript"], "inputs": ["artifact:transcript", "artifact:alignment_report"],
+      "outputs": [{"name": "timeline", "required": true}, {"name": "segment_candidates", "required": true}],
+      "checks": [{"name": "segments_cover_source", "required": true}, {"name": "quotes_verbatim", "required": true}],
+      "completion": "每段含编号、起止、原文、主题和置信度；候选不等于自动决定。",
+      "abandon_when": ["片段边界破坏句义且无法校正"],
+      "retry": {"max_attempts": 2, "change_required": "重新分段或回到对齐", "fallback": "只交付编号转写"}
+    },
+    {
+      "id": "keep_cut", "title": "人工 KEEP/CUT", "type": "human", "risk": "high",
+      "depends_on": ["numbered_timeline"], "inputs": ["artifact:timeline", "artifact:segment_candidates"],
+      "outputs": [{"name": "edit_decision", "required": true}],
+      "checks": [{"name": "human_selected_segments", "required": true}, {"name": "context_and_rights_reviewed", "required": true}],
+      "completion": "人工明确选择片段及顺序，AI 不以“精彩度”替代编辑判断。",
+      "abandon_when": ["所选片段断章取义", "目标时长与必须保留内容不可同时满足"],
+      "retry": {"max_attempts": 2, "change_required": "改变选段或目标时长", "fallback": "保持原片不剪"}
+    },
+    {
+      "id": "render", "title": "可重复渲染与字幕", "type": "assistive", "risk": "medium",
+      "depends_on": ["keep_cut"], "inputs": ["artifact:edit_decision", "artifact:transcript", "input:edit_brief"],
+      "outputs": [{"name": "rendered_media", "required": false}, {"name": "captions", "required": true}, {"name": "render_log", "required": true}],
+      "checks": [{"name": "timeline_conservation", "required": true}, {"name": "audio_video_duration", "required": true}, {"name": "subtitle_boundaries", "required": true}],
+      "completion": "若能力齐全则渲染文件通过机械检查；否则 captions、时间线和命令预览构成明确降级交付。",
+      "abandon_when": ["渲染失败却准备把空壳文件标完成", "字幕时间越界"],
+      "retry": {"max_attempts": 2, "change_required": "切换已声明渲染路径或降级", "fallback": "SRT + 时间线 + 命令预览"}
+    },
+    {
+      "id": "visual_review", "title": "人工目视与听感检查", "type": "human", "risk": "high",
+      "depends_on": ["render"], "inputs": ["artifact:render_log", "artifact:captions"],
+      "outputs": [{"name": "visual_review", "required": true}],
+      "checks": [{"name": "frames_audio_captions_reviewed", "required": true}, {"name": "degraded_output_labeled", "required": true}],
+      "completion": "人工检查画面、声音、字幕、断句、黑帧和敏感信息，并明确批准或退回。",
+      "abandon_when": ["无人实际观看/收听产物", "字体或裁切影响可读性"],
+      "retry": {"max_attempts": 2, "change_required": "按时间点修复并重新渲染", "fallback": "交付非视频降级物"}
+    },
+    {
+      "id": "delivery", "title": "交付清单与扫描", "type": "assistive", "risk": "high",
+      "depends_on": ["visual_review"], "inputs": ["artifact:visual_review", "artifact:captions", "artifact:render_log"],
+      "outputs": [{"name": "delivery_manifest", "required": true}],
+      "checks": [{"name": "metadata_reviewed", "required": true}, {"name": "rights_attached", "required": true}, {"name": "no_auto_publish", "required": true}],
+      "completion": "交付清单标明真实产物、降级项、权利与人工检查；没有自动发布。",
+      "abandon_when": ["EXIF/媒体元数据可能泄露身份", "降级物被误标为成片"],
+      "retry": {"max_attempts": 2, "change_required": "清理元数据并重建清单", "fallback": "只保留私有工作文件"}
+    }
+  ],
+  "deliverables": ["transcript.json", "timeline.csv", "edit-decision.json", "captions.srt", "render-log.json", "visual-review.md", "delivery-manifest.json"]
+}

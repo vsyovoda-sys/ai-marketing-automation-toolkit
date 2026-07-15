@@ -1,0 +1,85 @@
+{
+  "id": "product-gtm",
+  "version": "1.0.0",
+  "title": "产品定位证据与渠道实验",
+  "audiences": ["软件产品团队", "硬件产品团队", "产品市场", "营销传播", "内容创作者"],
+  "job_stories": [
+    "当产品准备进入市场时，我希望先把功能证据转成可审查主张，再决定传播。",
+    "当渠道效果未知时，我希望用有预算和停止条件的小实验学习，而不是一次押注。"
+  ],
+  "inputs": [
+    {"name": "product_evidence", "required": true, "rights_required": true, "formats": ["json", "csv", "md"], "description": "功能、限制、测试、用户反馈和版本日期"},
+    {"name": "market_request", "required": true, "rights_required": false, "formats": ["md", "json"], "description": "市场、辖区、目标、预算、时间和渠道候选"}
+  ],
+  "targets": [
+    {"id": "positioning-only", "terminal_phase": "message_pack", "description": "只完成定位证据、声明与信息架构"},
+    {"id": "full-experiment", "terminal_phase": "learning_template", "description": "完成定位并生成渠道小实验与学习模板"}
+  ],
+  "default_target": "full-experiment",
+  "phases": [
+    {
+      "id": "evidence_preflight", "title": "产品证据与适用范围", "type": "assistive", "risk": "high",
+      "depends_on": [], "inputs": ["input:product_evidence", "input:market_request"],
+      "outputs": [{"name": "evidence_inventory", "required": true}, {"name": "scope_contract", "required": true}],
+      "checks": [{"name": "version_and_date", "required": true}, {"name": "rights_and_jurisdiction", "required": true}, {"name": "known_limits", "required": true}],
+      "completion": "功能、限制、版本、证据类型和适用市场均明确。",
+      "abandon_when": ["产品能力只有宣传稿无验证", "目标市场合规范围不明"],
+      "retry": {"max_attempts": 2, "change_required": "补充测试或缩小声明范围", "fallback": "仅产出证据缺口"}
+    },
+    {
+      "id": "positioning", "title": "场景、JTBD、ICP 与替代方案", "type": "assistive", "risk": "medium",
+      "depends_on": ["evidence_preflight"], "inputs": ["artifact:evidence_inventory", "artifact:scope_contract"],
+      "outputs": [{"name": "positioning_hypotheses", "required": true}, {"name": "counterexamples", "required": true}],
+      "checks": [{"name": "scenario_specific", "required": true}, {"name": "alternatives_included", "required": true}, {"name": "no_sensitive_targeting", "required": true}],
+      "completion": "每个 ICP/场景假设包含证据、反例和替代方案。",
+      "abandon_when": ["ICP 依赖敏感属性定向", "只有人口标签没有任务场景"],
+      "retry": {"max_attempts": 2, "change_required": "改写为可观察任务与场景", "fallback": "保留未验证假设"}
+    },
+    {
+      "id": "claim_matrix", "title": "功能—价值—主张矩阵", "type": "assistive", "risk": "high",
+      "depends_on": ["positioning"], "inputs": ["artifact:positioning_hypotheses", "artifact:evidence_inventory"],
+      "outputs": [{"name": "claim_matrix", "required": true}],
+      "checks": [{"name": "every_claim_has_evidence", "required": true}, {"name": "fact_value_promise_separated", "required": true}, {"name": "scope_and_limit_visible", "required": true}],
+      "completion": "主张与证据、适用条件、限制和禁用表达一一对应。",
+      "abandon_when": ["关键卖点是未经验证的承诺", "因果或比较级没有依据"],
+      "retry": {"max_attempts": 2, "change_required": "降级、限定或删除主张", "fallback": "只描述已验证功能"}
+    },
+    {
+      "id": "message_pack", "title": "信息架构与渠道假设", "type": "assistive", "risk": "medium",
+      "depends_on": ["claim_matrix"], "inputs": ["artifact:claim_matrix", "artifact:positioning_hypotheses"],
+      "outputs": [{"name": "message_architecture", "required": true}, {"name": "channel_hypotheses", "required": true}],
+      "checks": [{"name": "traceable_to_claims", "required": true}, {"name": "channel_fit_explained", "required": true}],
+      "completion": "核心信息、证据和渠道假设可追溯，不把渠道常识当事实。",
+      "abandon_when": ["信息架构引入新卖点", "渠道选择无可测试假设"],
+      "retry": {"max_attempts": 2, "change_required": "收窄信息或明确渠道机制", "fallback": "选择一个最小渠道"}
+    },
+    {
+      "id": "experiment_contract", "title": "预注册渠道小实验", "type": "human", "risk": "high",
+      "depends_on": ["message_pack"], "inputs": ["artifact:message_architecture", "artifact:channel_hypotheses", "input:market_request"],
+      "outputs": [{"name": "experiment_contract", "required": true}],
+      "checks": [{"name": "primary_metric", "required": true}, {"name": "budget_and_sample_cap", "required": true}, {"name": "stop_and_decide_rule", "required": true}],
+      "completion": "负责人批准假设、样本/预算上限、主指标、停止条件和决策规则。",
+      "abandon_when": ["实验无法区分结果", "无成本上限或停止条件"],
+      "retry": {"max_attempts": 2, "change_required": "缩小实验或重写可证伪假设", "fallback": "不启动实验"}
+    },
+    {
+      "id": "experiment_pack", "title": "实验素材与执行预览", "type": "assistive", "risk": "high",
+      "depends_on": ["experiment_contract"], "inputs": ["artifact:experiment_contract", "artifact:message_architecture"],
+      "outputs": [{"name": "experiment_pack", "required": true}, {"name": "action_manifest", "required": true}],
+      "checks": [{"name": "variants_only_change_declared_factor", "required": true}, {"name": "manifest_plan_only", "required": true}, {"name": "redaction_scan", "required": true}],
+      "completion": "生成实验包和 plan_only 动作预览，不执行投放、付费或发布。",
+      "abandon_when": ["实验变量混杂", "审批后素材或预算发生变化"],
+      "retry": {"max_attempts": 2, "change_required": "重建实验包并重新批准", "fallback": "保留定位证据包"}
+    },
+    {
+      "id": "learning_template", "title": "结果解释与下一轮模板", "type": "assistive", "risk": "medium",
+      "depends_on": ["experiment_pack"], "inputs": ["artifact:experiment_contract", "artifact:experiment_pack"],
+      "outputs": [{"name": "learning_template", "required": true}],
+      "checks": [{"name": "alternative_explanations", "required": true}, {"name": "no_universal_causal_claim", "required": true}],
+      "completion": "预先定义数据质量、替代解释、结论边界和继续/停止决策格式。",
+      "abandon_when": ["计划用一次小样外推普遍因果"],
+      "retry": {"max_attempts": 2, "change_required": "补充混杂因素与结论边界", "fallback": "只记录观测，不下因果结论"}
+    }
+  ],
+  "deliverables": ["evidence-inventory.csv", "positioning-hypotheses.md", "claim-matrix.csv", "message-architecture.md", "experiment-contract.json", "experiment-pack.md", "action-manifest.json", "learning-template.md"]
+}

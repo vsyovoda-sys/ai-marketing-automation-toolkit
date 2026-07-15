@@ -1,0 +1,81 @@
+{
+  "id": "campaign-ops",
+  "version": "1.0.0",
+  "title": "Campaign 运营编排",
+  "audiences": ["营销传播", "PR", "新媒体运营", "内容团队", "产品GTM"],
+  "job_stories": [
+    "当活动跨研究、内容、预算和执行团队时，我希望依赖关系和责任人清楚，避免一份大方案假装已经执行。",
+    "当指标或资源异常时，我希望在上线前阻断并给出缺口，而不是自动放宽约束。"
+  ],
+  "inputs": [
+    {"name": "campaign_brief", "required": true, "rights_required": false, "formats": ["md", "json"], "description": "目标、受众、时间、预算、渠道、约束"},
+    {"name": "resource_contract", "required": true, "rights_required": false, "formats": ["csv", "json"], "description": "预算、人员、供应商、节奏和负责人"},
+    {"name": "evidence_pack", "required": true, "rights_required": true, "formats": ["json", "csv", "md"], "description": "已审查的研究和声明包"}
+  ],
+  "phases": [
+    {
+      "id": "brief_diagnosis", "title": "Brief 缺口诊断", "type": "assistive", "risk": "medium",
+      "depends_on": [], "inputs": ["input:campaign_brief", "input:resource_contract", "input:evidence_pack"],
+      "outputs": [{"name": "gap_list", "required": true}, {"name": "scope_contract", "required": true}],
+      "checks": [{"name": "goal_and_audience", "required": true}, {"name": "owner_and_timeline", "required": true}, {"name": "evidence_rights", "required": true}],
+      "completion": "目标、受众、负责人、时间、预算和关键证据均有明确状态。",
+      "abandon_when": ["核心目标冲突且无决策人", "证据包未通过权利审核"],
+      "retry": {"max_attempts": 2, "change_required": "补齐决策信息或缩小活动范围", "fallback": "输出缺口清单，不生成策略"}
+    },
+    {
+      "id": "success_contract", "title": "成功、暂停与终止契约", "type": "human", "risk": "high",
+      "depends_on": ["brief_diagnosis"], "inputs": ["artifact:scope_contract", "artifact:gap_list"],
+      "outputs": [{"name": "kpi_contract", "required": true}],
+      "checks": [{"name": "metric_formula", "required": true}, {"name": "pause_threshold", "required": true}, {"name": "decision_owner", "required": true}],
+      "completion": "负责人批准指标口径、数据延迟、暂停阈值和 kill threshold。",
+      "abandon_when": ["指标无分母或不可采集", "无人负责暂停决策"],
+      "retry": {"max_attempts": 2, "change_required": "重写指标或分配责任人", "fallback": "保持规划状态，不进入执行包"}
+    },
+    {
+      "id": "strategy", "title": "策略、机制与内容架构", "type": "assistive", "risk": "medium",
+      "depends_on": ["success_contract"], "inputs": ["artifact:kpi_contract", "input:evidence_pack"],
+      "outputs": [{"name": "strategy_one_pager", "required": true}, {"name": "content_architecture", "required": true}],
+      "checks": [{"name": "insight_to_mechanism", "required": true}, {"name": "claims_supported", "required": true}],
+      "completion": "洞察、机制、内容和 KPI 之间有可解释链路。",
+      "abandon_when": ["策略依赖未证实主张", "内容机制违反平台规则"],
+      "retry": {"max_attempts": 2, "change_required": "回到证据或改活动机制", "fallback": "交付策略假设与待验证项"}
+    },
+    {
+      "id": "work_packages", "title": "工作包、预算和责任矩阵", "type": "assistive", "risk": "medium",
+      "depends_on": ["strategy"], "inputs": ["artifact:strategy_one_pager", "artifact:content_architecture", "input:resource_contract"],
+      "outputs": [{"name": "work_packages", "required": true}, {"name": "budget_check", "required": true}, {"name": "responsibility_matrix", "required": true}],
+      "checks": [{"name": "budget_conservation", "required": true}, {"name": "every_task_has_owner", "required": true}, {"name": "dependencies_resolved", "required": true}],
+      "completion": "每项任务有输入、输出、负责人、截止时间、预算和验收方式。",
+      "abandon_when": ["预算或资源不守恒", "关键工作包没有 owner"],
+      "retry": {"max_attempts": 2, "change_required": "显式调整资源或范围", "fallback": "输出不可行计划与缺口"}
+    },
+    {
+      "id": "asset_readiness", "title": "子 Loop 产物与素材就绪检查", "type": "assistive", "risk": "high",
+      "depends_on": ["work_packages"], "inputs": ["artifact:work_packages", "artifact:content_architecture"],
+      "outputs": [{"name": "readiness_report", "required": true}],
+      "checks": [{"name": "child_loop_evidence", "required": true}, {"name": "rights_and_fact_gate", "required": true}, {"name": "fallback_assets", "required": true}],
+      "completion": "研究、内容、媒体、行动台和监测等子产物均有通过证据或明确缺口。",
+      "abandon_when": ["把计划文件误当已完成执行", "关键素材无权利凭证"],
+      "retry": {"max_attempts": 2, "change_required": "补做具体子 Loop 或删除不合格素材", "fallback": "延期上线"}
+    },
+    {
+      "id": "launch_review", "title": "上线前独立复核", "type": "human", "risk": "critical",
+      "depends_on": ["asset_readiness"], "inputs": ["artifact:readiness_report", "artifact:kpi_contract", "artifact:budget_check"],
+      "outputs": [{"name": "launch_decision", "required": true}],
+      "checks": [{"name": "risk_owner_review", "required": true}, {"name": "pause_and_rollback_ready", "required": true}],
+      "completion": "负责人选择 approve/revise/reject；该批准只覆盖本地上线包，不执行发布。",
+      "abandon_when": ["kill threshold 或回退方案缺失", "目标内容或预算在批准后变化"],
+      "retry": {"max_attempts": 2, "change_required": "修复就绪缺口并重新批准", "fallback": "不上线"}
+    },
+    {
+      "id": "launch_pack", "title": "上线包与动作预览", "type": "deterministic", "risk": "high",
+      "depends_on": ["launch_review"], "inputs": ["artifact:launch_decision", "artifact:work_packages"],
+      "outputs": [{"name": "launch_pack", "required": true}, {"name": "action_manifest", "required": true}],
+      "checks": [{"name": "manifest_plan_only", "required": true}, {"name": "redaction_scan", "required": true}],
+      "completion": "生成可审查上线包和 plan_only 动作清单；没有真实发布或写入。",
+      "abandon_when": ["动作目标、租户、diff 或 TTL 不明确"],
+      "retry": {"max_attempts": 2, "change_required": "重建上线包和动作清单", "fallback": "仅交付内部计划"}
+    }
+  ],
+  "deliverables": ["gap-list.md", "kpi-contract.json", "strategy.md", "work-packages.csv", "readiness.md", "launch-decision.md", "action-manifest.json"]
+}

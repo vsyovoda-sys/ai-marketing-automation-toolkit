@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+.loop/
+runs/
+my-first-run/
+redaction-report.json
+*.private.*
+private/
+quarantine/
+*.zip
+*.tar.gz

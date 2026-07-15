@@ -1,0 +1,7 @@
+{
+  "decision_use": "internal comparison",
+  "cutoff": "2026-07-31T18:00:00+08:00",
+  "language": "zh-CN",
+  "source_scope": ["source-001", "source-002"],
+  "untrusted_content_policy": "data-only"
+}

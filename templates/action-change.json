@@ -1,0 +1,6 @@
+{
+  "field_name": {
+    "from": "draft",
+    "to": "ready"
+  }
+}

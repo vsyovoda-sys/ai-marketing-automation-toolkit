@@ -1,0 +1,80 @@
+{
+  "id": "office-action-desk",
+  "version": "1.0.0",
+  "title": "只读办公行动台",
+  "audiences": ["办公者", "营销项目经理", "产品团队", "内容团队"],
+  "job_stories": [
+    "当邮件、会议、聊天和文档分散时，我希望得到有来源的行动台账，而不是让 AI 猜责任人。",
+    "当需要回信、建会或改任务时，我希望先看到绑定组织和精确 diff 的动作预览。"
+  ],
+  "inputs": [
+    {"name": "source_manifest", "required": true, "rights_required": true, "formats": ["json", "csv"], "description": "显式组织/profile、数据源、时间范围、用途和权限"},
+    {"name": "office_exports", "required": true, "rights_required": true, "formats": ["json", "csv", "md", "txt"], "description": "本地导出的邮件、会议、聊天、日历、任务或文档"}
+  ],
+  "phases": [
+    {
+      "id": "preflight", "title": "租户、来源与权限隔离", "type": "assistive", "risk": "critical",
+      "depends_on": [], "inputs": ["input:source_manifest", "input:office_exports"],
+      "outputs": [{"name": "scope_contract", "required": true}, {"name": "rights_ledger", "required": true}],
+      "checks": [{"name": "explicit_tenant_profile", "required": true}, {"name": "time_and_purpose", "required": true}, {"name": "cross_tenant_blocked", "required": true}],
+      "completion": "组织/profile、数据源、时间、用途和允许动作显式声明；不同租户完全隔离。",
+      "abandon_when": ["用户未明确组织/profile", "来源混入另一租户", "用途或权限不匹配"],
+      "retry": {"max_attempts": 2, "change_required": "显式选择租户并移除越界来源", "fallback": "只处理单个本地文件"}
+    },
+    {
+      "id": "normalize", "title": "去重、主题与来源规范化", "type": "assistive", "risk": "medium",
+      "depends_on": ["preflight"], "inputs": ["input:office_exports", "artifact:scope_contract"],
+      "outputs": [{"name": "normalized_index", "required": true}, {"name": "duplicate_candidates", "required": true}],
+      "checks": [{"name": "source_ids_kept", "required": true}, {"name": "timestamps_normalized", "required": true}, {"name": "duplicates_not_deleted", "required": true}],
+      "completion": "每项记录保留来源 ID、时间和租户；重复只标候选。",
+      "abandon_when": ["无法区分租户或时区", "关键记录没有来源"],
+      "retry": {"max_attempts": 2, "change_required": "补字段映射或拆分数据源", "fallback": "输出解析失败清单"}
+    },
+    {
+      "id": "extract", "title": "决策、待办、风险与草稿", "type": "assistive", "risk": "high",
+      "depends_on": ["normalize"], "inputs": ["artifact:normalized_index"],
+      "outputs": [{"name": "action_register", "required": true}, {"name": "decision_log", "required": true}, {"name": "risk_list", "required": true}],
+      "checks": [{"name": "every_item_has_source", "required": true}, {"name": "uncertainty_preserved", "required": true}, {"name": "no_cross_tenant_merge", "required": true}],
+      "completion": "行动、决策和风险逐条回链来源；不确定责任人或日期保留待确认。",
+      "abandon_when": ["需要凭语气猜责任人", "来源矛盾无法解释"],
+      "retry": {"max_attempts": 2, "change_required": "降低置信并进入待确认", "fallback": "只做主题摘要"}
+    },
+    {
+      "id": "owner_review", "title": "责任人、日期与优先级人工确认", "type": "human", "risk": "high",
+      "depends_on": ["extract"], "inputs": ["artifact:action_register", "artifact:decision_log"],
+      "outputs": [{"name": "confirmed_register", "required": true}],
+      "checks": [{"name": "owners_confirmed", "required": true}, {"name": "dates_and_timezone", "required": true}],
+      "completion": "人工确认或明确保留待确认；AI 不把推断写成责任分配。",
+      "abandon_when": ["关键行动无人可确认", "日期在时区转换后冲突"],
+      "retry": {"max_attempts": 2, "change_required": "向责任方核实或移除错误项", "fallback": "保留待确认清单"}
+    },
+    {
+      "id": "drafts", "title": "日报、周报与沟通草稿", "type": "assistive", "risk": "medium",
+      "depends_on": ["owner_review"], "inputs": ["artifact:confirmed_register", "artifact:risk_list"],
+      "outputs": [{"name": "office_pack", "required": true}],
+      "checks": [{"name": "drafts_labeled", "required": true}, {"name": "source_traceability", "required": true}, {"name": "recipients_not_assumed", "required": true}],
+      "completion": "摘要与草稿标明未发送，关键事实回链来源，收件人未从历史猜测。",
+      "abandon_when": ["草稿跨租户包含信息", "收件人或渠道不明确"],
+      "retry": {"max_attempts": 2, "change_required": "拆分租户或收窄内容", "fallback": "只输出行动台账"}
+    },
+    {
+      "id": "action_preview", "title": "外部动作清单预览", "type": "deterministic", "risk": "critical",
+      "depends_on": ["drafts"], "inputs": ["artifact:office_pack", "artifact:scope_contract"],
+      "outputs": [{"name": "action_manifest", "required": true}],
+      "checks": [{"name": "explicit_tenant_target_diff", "required": true}, {"name": "ttl_and_fingerprint", "required": true}, {"name": "manifest_plan_only", "required": true}],
+      "completion": "只生成绑定租户、身份、目标、diff、数量、指纹和 TTL 的 plan_only manifest。",
+      "abandon_when": ["任何目标或租户来自默认猜测", "计划要求发送、建会或写回却无明确 diff"],
+      "retry": {"max_attempts": 2, "change_required": "补齐目标并重新生成", "fallback": "不生成动作清单"}
+    },
+    {
+      "id": "delivery", "title": "本地交付与脱敏", "type": "assistive", "risk": "high",
+      "depends_on": ["action_preview"], "inputs": ["artifact:office_pack", "artifact:action_manifest"],
+      "outputs": [{"name": "delivery_manifest", "required": true}],
+      "checks": [{"name": "redaction_scan", "required": true}, {"name": "no_external_commit", "required": true}],
+      "completion": "本地交付清单说明来源范围和未决项；没有外发或云端写入。",
+      "abandon_when": ["交付物将私有信息带入公开目录"],
+      "retry": {"max_attempts": 2, "change_required": "分租户重建并重新扫描", "fallback": "保留私有台账"}
+    }
+  ],
+  "deliverables": ["normalized-index.json", "action-register.csv", "decision-log.md", "risk-list.md", "office-pack.md", "action-manifest.json", "delivery-manifest.json"]
+}

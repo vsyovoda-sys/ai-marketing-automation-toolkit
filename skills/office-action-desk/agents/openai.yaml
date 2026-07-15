@@ -1,0 +1,4 @@
+interface:
+  display_name: "office-action-desk"
+  short_description: "Run a safe, resumable end-to-end AI workflow"
+  default_prompt: "Use this skill to run the workflow with explicit evidence, checkpoints, and human gates."

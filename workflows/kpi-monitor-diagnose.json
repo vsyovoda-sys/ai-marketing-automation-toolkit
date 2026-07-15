@@ -1,0 +1,80 @@
+{
+  "id": "kpi-monitor-diagnose",
+  "version": "1.0.0",
+  "title": "KPI 监测与异常诊断",
+  "audiences": ["营销传播", "内容创作者", "产品GTM", "办公管理者"],
+  "job_stories": [
+    "当指标变化时，我希望先排除数据口径和延迟问题，再讨论业务原因。",
+    "当证据不足时，我希望得到替代解释与下一步检查，而不是一个确定但错误的归因。"
+  ],
+  "inputs": [
+    {"name": "metric_contract", "required": true, "rights_required": false, "formats": ["json", "csv"], "description": "公式、分母、时区、基线、目标、延迟、阈值和 owner"},
+    {"name": "metric_data", "required": true, "rights_required": true, "formats": ["csv"], "description": "带时间和来源版本的指标数据"}
+  ],
+  "phases": [
+    {
+      "id": "contract_review", "title": "指标契约人工确认", "type": "human", "risk": "high",
+      "depends_on": [], "inputs": ["input:metric_contract"],
+      "outputs": [{"name": "approved_contract", "required": true}],
+      "checks": [{"name": "formula_denominator", "required": true}, {"name": "timezone_delay", "required": true}, {"name": "threshold_owner", "required": true}],
+      "completion": "负责人批准公式、分母、时区、数据延迟、异常阈值和决策人。",
+      "abandon_when": ["指标无稳定定义", "阈值或负责人缺失"],
+      "retry": {"max_attempts": 2, "change_required": "补指标契约", "fallback": "只做数据质量画像"}
+    },
+    {
+      "id": "data_quality", "title": "数据版本与质量", "type": "assistive", "risk": "medium",
+      "depends_on": ["contract_review"], "inputs": ["input:metric_data", "artifact:approved_contract"],
+      "outputs": [{"name": "quality_report", "required": true}, {"name": "normalized_metrics", "required": true}],
+      "checks": [{"name": "schema_and_types", "required": true}, {"name": "denominator_present", "required": true}, {"name": "delay_within_tolerance", "required": true}],
+      "completion": "数据 schema、口径版本、分母、缺失、重复和延迟通过契约。",
+      "abandon_when": ["关键分母缺失", "口径变化未版本化", "延迟超过容忍"],
+      "retry": {"max_attempts": 2, "change_required": "修复数据源或选择正确版本", "fallback": "报告数据问题，不做业务归因"}
+    },
+    {
+      "id": "detect", "title": "按契约检测异常", "type": "assistive", "risk": "medium",
+      "depends_on": ["data_quality"], "inputs": ["artifact:normalized_metrics", "artifact:approved_contract"],
+      "outputs": [{"name": "anomaly_list", "required": true}],
+      "checks": [{"name": "thresholds_applied", "required": true}, {"name": "baseline_comparable", "required": true}],
+      "completion": "异常按预注册阈值产生，未事后移动标准以制造结论。",
+      "abandon_when": ["基线不可比", "样本太小无法应用阈值"],
+      "retry": {"max_attempts": 2, "change_required": "使用可比基线或标记不足", "fallback": "只展示原始趋势"}
+    },
+    {
+      "id": "classify", "title": "数据问题、波动或业务变化分类", "type": "assistive", "risk": "medium",
+      "depends_on": ["detect"], "inputs": ["artifact:anomaly_list", "artifact:quality_report"],
+      "outputs": [{"name": "classification", "required": true}],
+      "checks": [{"name": "data_issue_first", "required": true}, {"name": "uncertainty_visible", "required": true}],
+      "completion": "每个异常给出类别、证据、置信度和需要补的数据。",
+      "abandon_when": ["数据质量未通过却直接归因业务"],
+      "retry": {"max_attempts": 2, "change_required": "补数据检查或降低置信", "fallback": "标记未分类"}
+    },
+    {
+      "id": "diagnose", "title": "假设树与反证", "type": "assistive", "risk": "high",
+      "depends_on": ["classify"], "inputs": ["artifact:classification", "artifact:normalized_metrics"],
+      "outputs": [{"name": "diagnosis", "required": true}, {"name": "next_checks", "required": true}],
+      "checks": [{"name": "alternative_explanations", "required": true}, {"name": "correlation_not_causation", "required": true}, {"name": "evidence_links", "required": true}],
+      "completion": "诊断包含主假设、替代解释、反证、证据和最小下一步检查。",
+      "abandon_when": ["只有单一原因叙事", "证据只支持相关却声称因果"],
+      "retry": {"max_attempts": 2, "change_required": "增加反例或收窄结论", "fallback": "输出假设列表而非归因"}
+    },
+    {
+      "id": "decision_review", "title": "业务决策人工复核", "type": "human", "risk": "high",
+      "depends_on": ["diagnose"], "inputs": ["artifact:diagnosis", "artifact:next_checks"],
+      "outputs": [{"name": "decision_record", "required": true}],
+      "checks": [{"name": "owner_reviewed", "required": true}, {"name": "risk_and_cost_bounded", "required": true}],
+      "completion": "负责人决定继续调查、保持、暂停或提出动作预览；AI 不自动改预算或关停。",
+      "abandon_when": ["行动成本或影响范围不明"],
+      "retry": {"max_attempts": 2, "change_required": "补证据或缩小动作", "fallback": "不改变业务状态"}
+    },
+    {
+      "id": "readout", "title": "可审查读数与后续模板", "type": "assistive", "risk": "medium",
+      "depends_on": ["decision_review"], "inputs": ["artifact:decision_record", "artifact:diagnosis"],
+      "outputs": [{"name": "kpi_readout", "required": true}, {"name": "action_manifest", "required": false}],
+      "checks": [{"name": "definitions_attached", "required": true}, {"name": "limitations_visible", "required": true}, {"name": "any_manifest_plan_only", "required": true}],
+      "completion": "读数包含指标定义、数据状态、诊断边界、决定和下一次检查；动作只可为 plan_only。",
+      "abandon_when": ["报告隐藏口径变化或数据延迟"],
+      "retry": {"max_attempts": 2, "change_required": "补定义与限制后重建", "fallback": "只交付质量报告"}
+    }
+  ],
+  "deliverables": ["approved-contract.json", "quality-report.json", "anomaly-list.csv", "diagnosis.md", "next-checks.csv", "decision.md", "kpi-readout.md"]
+}

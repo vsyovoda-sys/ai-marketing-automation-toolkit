@@ -1,0 +1,81 @@
+{
+  "id": "content-repurpose",
+  "version": "1.0.0",
+  "title": "可信源内容再利用",
+  "audiences": ["自媒体内容创作者", "新媒体运营", "营销传播", "产品内容团队"],
+  "job_stories": [
+    "当我要把一份可信材料改成多个平台内容时，我希望事实不走样而平台表达真正不同。",
+    "当我修改 AI 草稿时，我希望差异沉淀为候选规则，而不是下次再犯。"
+  ],
+  "inputs": [
+    {"name": "source_pack", "required": true, "rights_required": true, "formats": ["md", "txt", "json", "csv"], "description": "允许再利用的源材料与段落 ID"},
+    {"name": "content_brief", "required": true, "rights_required": false, "formats": ["md", "json"], "description": "受众、平台、目标、语气、禁用项和不可改变事实"},
+    {"name": "rights_ledger", "required": true, "rights_required": true, "formats": ["csv", "json"], "description": "来源所有者、允许用途、署名和保留期"}
+  ],
+  "phases": [
+    {
+      "id": "preflight", "title": "权利、格式与注入预检", "type": "assistive", "risk": "high",
+      "depends_on": [], "inputs": ["input:source_pack", "input:content_brief", "input:rights_ledger"],
+      "outputs": [{"name": "scope_contract", "required": true}, {"name": "source_index", "required": true}],
+      "checks": [{"name": "reuse_rights", "required": true}, {"name": "source_as_data", "required": true}, {"name": "immutable_facts", "required": true}],
+      "completion": "可用材料、不可改变事实、署名和平台范围均明确。",
+      "abandon_when": ["版权或用途不明", "来源要求执行外部指令"],
+      "retry": {"max_attempts": 2, "change_required": "补权利记录或移除不明来源", "fallback": "只使用用户原创且已授权材料"}
+    },
+    {
+      "id": "source_map", "title": "段落、声明与素材地图", "type": "assistive", "risk": "medium",
+      "depends_on": ["preflight"], "inputs": ["artifact:source_index", "artifact:scope_contract"],
+      "outputs": [{"name": "source_map", "required": true}, {"name": "claim_queue", "required": true}],
+      "checks": [{"name": "paragraph_traceability", "required": true}, {"name": "claims_need_check_marked", "required": true}],
+      "completion": "可复用观点、事实、案例、引语和待核声明均绑定源段 ID。",
+      "abandon_when": ["关键观点无法回链源段", "需要新增无来源事实才能成稿"],
+      "retry": {"max_attempts": 2, "change_required": "收窄角度或补证据", "fallback": "只做摘要，不做延伸"}
+    },
+    {
+      "id": "editorial_angle", "title": "受众角度与主稿结构", "type": "assistive", "risk": "low",
+      "depends_on": ["source_map"], "inputs": ["artifact:source_map", "input:content_brief"],
+      "outputs": [{"name": "editorial_plan", "required": true}],
+      "checks": [{"name": "audience_job", "required": true}, {"name": "angle_supported", "required": true}],
+      "completion": "角度回应具体受众任务，并明确开头、证据、转折和行动。",
+      "abandon_when": ["角度依赖夸大或未证实冲突"],
+      "retry": {"max_attempts": 2, "change_required": "改受众任务或选择证据更强的角度", "fallback": "使用事实型解释结构"}
+    },
+    {
+      "id": "master_draft", "title": "主稿与声明回链", "type": "assistive", "risk": "medium",
+      "depends_on": ["editorial_angle"], "inputs": ["artifact:editorial_plan", "artifact:source_map"],
+      "outputs": [{"name": "master_draft", "required": true}, {"name": "claim_links", "required": true}],
+      "checks": [{"name": "all_claims_linked", "required": true}, {"name": "no_unsupported_features", "required": true}, {"name": "no_fabricated_numbers", "required": true}],
+      "completion": "主稿所有发布性声明回链来源；事实、观点和建议已区分。",
+      "abandon_when": ["精确数字、功能或因果缺少证据"],
+      "retry": {"max_attempts": 2, "change_required": "删除、限定或核实声明", "fallback": "交付较短但有证据的主稿"}
+    },
+    {
+      "id": "platform_variants", "title": "平台原生变体", "type": "assistive", "risk": "medium",
+      "depends_on": ["master_draft"], "inputs": ["artifact:master_draft", "artifact:claim_links"],
+      "outputs": [{"name": "platform_pack", "required": true}],
+      "checks": [{"name": "platform_structure_differs", "required": true}, {"name": "claim_meaning_unchanged", "required": true}, {"name": "specs_met", "required": true}],
+      "completion": "各平台在结构、节奏、CTA 和格式上适配，而非只改标题；事实含义不变。",
+      "abandon_when": ["为了平台效果改变事实范围", "版权或字数规格无法满足"],
+      "retry": {"max_attempts": 2, "change_required": "调整结构而非增加夸张", "fallback": "只交付主稿与一个平台版本"}
+    },
+    {
+      "id": "editor_review", "title": "编辑人工复核", "type": "human", "risk": "high",
+      "depends_on": ["platform_variants"], "inputs": ["artifact:platform_pack", "artifact:claim_links"],
+      "outputs": [{"name": "edited_pack", "required": true}, {"name": "review_record", "required": true}],
+      "checks": [{"name": "voice_and_claims_reviewed", "required": true}, {"name": "rights_rechecked", "required": true}],
+      "completion": "编辑明确 approve/revise/reject，并保存定稿与草稿差异。",
+      "abandon_when": ["编辑无法访问声明依据", "定稿新增未核实事实"],
+      "retry": {"max_attempts": 2, "change_required": "修复实质问题并重新审查", "fallback": "标记为不可发布草稿"}
+    },
+    {
+      "id": "learning_and_release", "title": "差异学习与发布候选", "type": "assistive", "risk": "high",
+      "depends_on": ["editor_review"], "inputs": ["artifact:edited_pack", "artifact:review_record"],
+      "outputs": [{"name": "rule_proposals", "required": true}, {"name": "release_pack", "required": true}],
+      "checks": [{"name": "rules_are_proposals_only", "required": true}, {"name": "redaction_scan", "required": true}, {"name": "no_external_publish", "required": true}],
+      "completion": "草稿/定稿差异转为不可执行规则提案；发布包通过扫描但未自动发布。",
+      "abandon_when": ["规则提案扩大权限或引入新网络域名", "发布包含私有来源线索"],
+      "retry": {"max_attempts": 2, "change_required": "删除危险规则并从允许字段重建", "fallback": "只保留本地编辑稿"}
+    }
+  ],
+  "deliverables": ["source-map.csv", "editorial-plan.md", "master-draft.md", "platform-pack.md", "edited-pack.md", "rule-proposals.json"]
+}

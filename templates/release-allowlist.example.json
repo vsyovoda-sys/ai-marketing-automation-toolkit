@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "source": "replace-with-local-approved-file",
+      "source_sha256": "replace-with-64-character-sha256",
+      "destination": "docs/example.md",
+      "taint": "publishable",
+      "rights_status": "approved",
+      "source_category": "original-template"
+    }
+  ]
+}
