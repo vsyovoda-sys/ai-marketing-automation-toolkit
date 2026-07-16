@@ -1,0 +1,4 @@
+interface:
+  display_name: "Platform Positioning Benchmark"
+  short_description: "Find a defensible social content position"
+  default_prompt: "Use $platform-positioning-benchmark to map my platform position and design content experiments."

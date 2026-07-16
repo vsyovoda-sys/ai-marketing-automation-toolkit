@@ -6,6 +6,7 @@ __pycache__/
 runs/
 my-first-run/
 redaction-report.json
+redaction-report-*.json
 *.private.*
 private/
 quarantine/

@@ -1,6 +1,6 @@
 # AI 营销自动化 Loop 工具包
 
-给营销传播、自媒体创作者、产品 GTM 与办公者使用的 8 个端到端 AI Loop。它不是提示词合集：每个 Loop 都有输入契约、阶段状态、人工关口、失败预算、产物证据和发布前检查。
+给营销传播、自媒体创作者、产品 GTM 与办公者使用的 10 个端到端 AI Loop。它不是提示词合集：每个 Loop 都有输入契约、阶段状态、人工关口、失败预算、产物证据和发布前检查。
 
 ## 3 分钟开始
 
@@ -21,8 +21,10 @@ python3 scripts/loopctl.py status --workspace ./my-first-run
 
 | 需求 | 使用 |
 |---|---|
+| 先判断我是采购创作者，还是寻找自己/产品的平台位置 | `creator-strategy-router` |
 | 多源调研、事实核验、Brief | `research-to-brief` |
-| 创作者筛选、采买组合、预算 | `creator-portfolio` |
+| 品牌/代理商已有授权采购入口，要筛选创作者、做采买组合和预算 | `creator-portfolio` |
+| 个人创作者、AI IP、艺人团队或产品要找平台定位与内容实验 | `platform-positioning-benchmark` |
 | Campaign 从 Brief 到上线包 | `campaign-ops` |
 | 产品定位、卖点、渠道小实验 | `product-gtm` |
 | 一份材料改写成多平台内容 | `content-repurpose` |
@@ -32,6 +34,7 @@ python3 scripts/loopctl.py status --workspace ./my-first-run
 
 完整对照见 [CATALOG.zh-CN.md](CATALOG.zh-CN.md)，更短的命令说明见 [QUICKSTART.zh-CN.md](QUICKSTART.zh-CN.md)。
 四类人群怎样组合现有 Loop，见 [docs/四类人群组合场景.md](docs/四类人群组合场景.md)。
+平台创作者战略的入口与证据边界见 [docs/平台创作者战略架构.md](docs/平台创作者战略架构.md)。
 
 ## 默认安全边界
 

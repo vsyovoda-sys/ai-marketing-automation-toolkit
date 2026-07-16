@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "platforms": [
+    {
+      "platform": "填写平台名称",
+      "visible_account_role": "brand_buyer | delegated_agency | creator_side | inspiration_only | ordinary_user | unknown",
+      "permitted_pages": ["填写已确认、允许使用的页面类型"],
+      "official_export_or_api": "yes | no | unknown",
+      "permitted_fields": ["stable_creator_id", "content_category", "permitted_performance_field"],
+      "allowed_purpose": "本次内部定位研究或采购决策",
+      "retention_period": "例如：项目结束后 90 天",
+      "private_destination": "例如：本机项目私有运行目录；不得填登录凭据或 Cookie",
+      "redistribution": "prohibited | permitted_with_conditions | unknown",
+      "prohibited_actions": ["绕过登录", "绕过验证码", "导出限制之外的批量采集", "公开再分发受限数据"]
+    }
+  ],
+  "procurement_authority": {
+    "status": "verified | unverified | none",
+    "basis": "official_buyer_surface | authorized_export_or_api | documented_delegation | none",
+    "authorizer_role": "填写授权人角色；不要填写姓名、邮箱、电话或密钥",
+    "confirmed_on": "YYYY-MM-DD"
+  },
+  "human_confirmation": {
+    "confirmed_by_role": "填写确认者角色；不要填写个人联系方式",
+    "confirmed_on": "YYYY-MM-DD",
+    "statement": "我确认以上页面、字段、用途、留存期和私有位置均在本次任务的允许范围内。"
+  }
+}

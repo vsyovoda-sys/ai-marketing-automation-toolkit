@@ -1,0 +1,4 @@
+interface:
+  display_name: "Creator Strategy Router"
+  short_description: "Route creator work by goal, access, and rights"
+  default_prompt: "Use $creator-strategy-router to decide whether I need creator procurement or platform positioning."

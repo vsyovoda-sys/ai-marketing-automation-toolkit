@@ -1,0 +1,109 @@
+{
+  "id": "platform-positioning-benchmark",
+  "version": "1.0.0",
+  "title": "平台定位与内容参照系",
+  "audiences": ["个人创作者", "AI IP", "艺人/MCN团队", "软件产品GTM", "硬件产品GTM", "品牌内容团队"],
+  "job_stories": [
+    "当我没有品牌采购后台、但需要在平台上找到自己或产品的位置时，我希望用平台内容参照系和小实验建立定位，而不是硬凑一份博主采购名单。",
+    "当我研究平台推荐机制时，我希望区分官方已公开的机制、可观察信号和未经证实的传闻，避免把算法猜测当成固定权重。"
+  ],
+  "inputs": [
+    {"name": "positioning_request", "required": true, "rights_required": false, "formats": ["md", "json"], "description": "主体、人/产品、目标平台、目标受众、要取得的位置、商业目标与时间范围"},
+    {"name": "access_profile", "required": true, "rights_required": true, "formats": ["md", "json", "csv"], "description": "本人账号及可访问的创作、灵感、趋势、数据页面；允许使用的数据和操作边界"},
+    {"name": "owned_evidence", "required": false, "rights_required": true, "formats": ["md", "json", "csv"], "description": "账号历史数据、内容样本、产品证据、用户反馈、竞品或公开参考资料清单"}
+  ],
+  "phases": [
+    {
+      "id": "scope_and_access",
+      "title": "定位目标、账号能力与研究边界",
+      "type": "human",
+      "risk": "high",
+      "depends_on": [],
+      "inputs": ["input:positioning_request", "input:access_profile"],
+      "outputs": [{"name": "positioning_contract", "required": true}, {"name": "access_boundary", "required": true}],
+      "checks": [{"name": "positioning_decision_defined", "required": true}, {"name": "authorized_sources_only", "required": true}],
+      "completion": "明确要建立的是创作者、AI IP、艺人或产品的位置，以及可以合法使用的本人数据、公开资料和平台页面。",
+      "abandon_when": ["定位目标等同于虚假流量承诺", "要求批量抓取、出售或公开再分发受限账号数据"],
+      "retry": {"max_attempts": 2, "change_required": "缩小目标或数据范围", "fallback": "只交付定位问题清单"}
+    },
+    {
+      "id": "mechanism_evidence",
+      "title": "平台机制证据账本",
+      "type": "assistive",
+      "risk": "medium",
+      "depends_on": ["scope_and_access"],
+      "inputs": ["artifact:positioning_contract", "artifact:access_boundary"],
+      "outputs": [{"name": "mechanism_evidence_ledger", "required": true}, {"name": "measurement_guardrails", "required": true}],
+      "checks": [{"name": "official_and_inferred_separated", "required": true}, {"name": "source_url_publisher_and_dates_recorded", "required": true}, {"name": "stale_or_unsourced_claims_downgraded", "required": true}, {"name": "no_fake_algorithm_weights", "required": true}],
+      "completion": "对每个平台把官方机制、可观察指标、业务假设和未知项分列；没有公开固定权重时明确标注未知。",
+      "abandon_when": ["用传闻冒充官方算法参数"],
+      "retry": {"max_attempts": 2, "change_required": "补充来源或将断言降级为假设", "fallback": "只交付来源账本"}
+    },
+    {
+      "id": "ecosystem_map",
+      "title": "内容生态与参照组地图",
+      "type": "assistive",
+      "risk": "medium",
+      "depends_on": ["mechanism_evidence"],
+      "inputs": ["artifact:mechanism_evidence_ledger", "artifact:access_boundary", "input:owned_evidence"],
+      "outputs": [{"name": "content_taxonomy", "required": true}, {"name": "reference_cohort", "required": true}, {"name": "evidence_gaps", "required": true}],
+      "checks": [{"name": "references_are_cited", "required": true}, {"name": "field_minimized_and_redistribution_status_recorded", "required": true}, {"name": "cohort_is_not_a_procurement_list", "required": true}],
+      "completion": "形成内容类型、账号角色、表达方式、互动信号和空白机会的参照系；不把参照账号伪装成可采购名单。",
+      "abandon_when": ["参考样本没有来源或只凭粉丝量分类"],
+      "retry": {"max_attempts": 2, "change_required": "补充样本或调整分类", "fallback": "交付样本缺口清单"}
+    },
+    {
+      "id": "positioning_options",
+      "title": "定位假设与差异化表达",
+      "type": "assistive",
+      "risk": "medium",
+      "depends_on": ["ecosystem_map"],
+      "inputs": ["artifact:content_taxonomy", "artifact:reference_cohort", "artifact:evidence_gaps"],
+      "outputs": [{"name": "positioning_options", "required": true}, {"name": "content_pillars", "required": true}],
+      "checks": [{"name": "claim_evidence_linked", "required": true}, {"name": "differentiation_testable", "required": true}],
+      "completion": "提出至少两套可证伪的定位与内容支柱，不把平台偏好误写成对个人的保证。",
+      "abandon_when": ["定位仅是模仿头部账号", "产品或人物主张没有证据"],
+      "retry": {"max_attempts": 2, "change_required": "改变人群、场景或主张", "fallback": "保留参照系，不输出定位结论"}
+    },
+    {
+      "id": "experiment_design",
+      "title": "内容小实验与学习计划",
+      "type": "assistive",
+      "risk": "medium",
+      "depends_on": ["positioning_options"],
+      "inputs": ["artifact:positioning_options", "artifact:content_pillars", "artifact:measurement_guardrails"],
+      "outputs": [{"name": "experiment_plan", "required": true}, {"name": "measurement_contract", "required": true}],
+      "checks": [{"name": "leading_and_lagging_metrics_separated", "required": true}, {"name": "stop_conditions_defined", "required": true}],
+      "completion": "每个内容实验明确假设、内容变量、样本窗口、可观察指标、停止条件和下一轮学习方式。",
+      "abandon_when": ["把单条内容爆不爆当作唯一结论", "没有数据口径却承诺推荐效果"],
+      "retry": {"max_attempts": 2, "change_required": "收窄变量或补充指标口径", "fallback": "交付实验待确认表"}
+    },
+    {
+      "id": "positioning_review",
+      "title": "业务与证据复核",
+      "type": "human",
+      "risk": "high",
+      "depends_on": ["experiment_design"],
+      "inputs": ["artifact:positioning_options", "artifact:experiment_plan", "artifact:mechanism_evidence_ledger"],
+      "outputs": [{"name": "review_record", "required": true}],
+      "checks": [{"name": "assumptions_approved", "required": true}, {"name": "risks_visible", "required": true}],
+      "completion": "负责人选择一套定位和首轮实验，或要求修订，并保留对证据与不确定性的确认。",
+      "abandon_when": ["把假设当成已经验证的策略"],
+      "retry": {"max_attempts": 2, "change_required": "按复核意见改变定位或实验", "fallback": "只交付内部研究版本"}
+    },
+    {
+      "id": "delivery",
+      "title": "定位包、内容实验包与发布前检查",
+      "type": "assistive",
+      "risk": "high",
+      "depends_on": ["positioning_review"],
+      "inputs": ["artifact:review_record", "artifact:positioning_options", "artifact:experiment_plan", "artifact:access_boundary", "artifact:mechanism_evidence_ledger"],
+      "outputs": [{"name": "positioning_pack", "required": true}, {"name": "experiment_pack", "required": true}, {"name": "release_manifest", "required": true}],
+      "checks": [{"name": "rights_and_privacy_checked", "required": true}, {"name": "reference_fields_minimized", "required": true}, {"name": "algorithm_claims_qualified", "required": true}],
+      "completion": "交付可执行定位包和内容实验包；不自动发布、不购买流量、不承诺平台推荐。",
+      "abandon_when": ["发布物仍含未授权账号数据、个人信息或伪造算法结论"],
+      "retry": {"max_attempts": 2, "change_required": "重建交付物并移除问题内容", "fallback": "只交付内部版本"}
+    }
+  ],
+  "deliverables": ["mechanism-evidence-ledger.md", "content-taxonomy.md", "reference-cohort.csv", "positioning-options.md", "content-pillars.md", "experiment-plan.md", "measurement-contract.md", "positioning-pack.md"]
+}

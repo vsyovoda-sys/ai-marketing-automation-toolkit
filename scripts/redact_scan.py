@@ -21,6 +21,9 @@ TEXT_EXTENSIONS = {
 }
 CONTAINER_EXTENSIONS = {".docx", ".pptx", ".xlsx", ".xlsm", ".zip"}
 IGNORE_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".pytest_cache"}
+# Finder metadata is neither a publishable artifact nor source content. It is
+# ignored rather than treated as an uninspectable text file.
+IGNORE_FILE_NAMES = {".DS_Store"}
 MAX_FILE_BYTES = 20 * 1024 * 1024
 MAX_MEMBER_BYTES = 8 * 1024 * 1024
 MAX_CONTAINER_MEMBERS = 5000
@@ -152,7 +155,7 @@ def collect_files(root: Path) -> list[Path]:
     for path in root.rglob("*"):
         if any(part in IGNORE_DIRS for part in path.parts):
             continue
-        if path.is_file() and not path.is_symlink():
+        if path.is_file() and path.name not in IGNORE_FILE_NAMES and not path.is_symlink():
             files.append(path)
     return sorted(files)
 

@@ -1,0 +1,70 @@
+{
+  "id": "creator-strategy-router",
+  "version": "1.0.0",
+  "title": "平台创作者战略入口与分流",
+  "audiences": ["品牌方", "代理商", "PR/营销/运营", "个人创作者", "AI IP", "艺人/MCN团队", "产品GTM"],
+  "job_stories": [
+    "当我想在社媒平台找到位置时，我希望先判断我是要采购创作者还是建立自己的内容定位，以免拿错工具。",
+    "当我的账号权限不同于品牌采购方时，我希望流程只使用我合法可见的数据，并告诉我下一步该进入哪条路径。"
+  ],
+  "inputs": [
+    {"name": "strategy_request", "required": true, "rights_required": false, "formats": ["md", "json"], "description": "主体、人/产品、目标平台、要解决的决策、市场与时间范围"},
+    {"name": "access_profile", "required": true, "rights_required": true, "formats": ["md", "json", "csv"], "description": "每个平台的账号角色、已登录状态、可访问页面、导出/API权限、允许用途与禁止动作"},
+    {"name": "available_materials", "required": false, "rights_required": true, "formats": ["md", "json", "csv"], "description": "已有候选池、账号数据、内容样本、产品资料或研究资料的清单"}
+  ],
+  "phases": [
+    {
+      "id": "identity_and_goal",
+      "title": "主体、目标与不可替代决策确认",
+      "type": "human",
+      "risk": "high",
+      "depends_on": [],
+      "inputs": ["input:strategy_request"],
+      "outputs": [{"name": "identity_contract", "required": true}],
+      "checks": [{"name": "role_is_explicit", "required": true}, {"name": "decision_is_explicit", "required": true}],
+      "completion": "明确主体是品牌采购方、创作者/AI IP、产品方或代表方；明确目标是采购合作、内容定位或两者兼有。",
+      "abandon_when": ["主体、目的或最终决策无法说清", "要求用他人账号或不明授权访问数据"],
+      "retry": {"max_attempts": 2, "change_required": "补充主体和决策信息", "fallback": "仅交付问题澄清表"}
+    },
+    {
+      "id": "access_and_rights",
+      "title": "账号能力、数据权利与采集边界",
+      "type": "human",
+      "risk": "critical",
+      "depends_on": ["identity_and_goal"],
+      "inputs": ["input:access_profile", "artifact:identity_contract"],
+      "outputs": [{"name": "access_contract", "required": true}, {"name": "collection_boundary", "required": true}],
+      "checks": [{"name": "account_role_confirmed", "required": true}, {"name": "authorized_collection_only", "required": true}, {"name": "no_bulk_redistribution", "required": true}],
+      "completion": "记录每个平台可见能力和允许动作；禁止把登录态、受限导出或整库账号数据当作课程公共资料库。",
+      "abandon_when": ["无法确认数据来源或使用权", "计划绕过登录、验证码、接口范围、平台限制或公开再分发受限账号数据"],
+      "retry": {"max_attempts": 2, "change_required": "缩小数据范围或改用授权来源", "fallback": "只使用用户自有分析数据与公开、可引用资料"}
+    },
+    {
+      "id": "route_decision",
+      "title": "选择采购路径或定位路径",
+      "type": "assistive",
+      "risk": "medium",
+      "depends_on": ["access_and_rights"],
+      "inputs": ["artifact:identity_contract", "artifact:access_contract", "artifact:collection_boundary"],
+      "outputs": [{"name": "route_decision", "required": true}, {"name": "missing_capability_list", "required": true}],
+      "checks": [{"name": "route_matches_goal", "required": true}, {"name": "route_matches_access", "required": true}],
+      "completion": "按决策和已证实的采购授权输出主路径：任何主体只要要做采购且具备官方后台、授权 API/导出或明确受托授权，就进入 creator-portfolio；创作者侧/灵感侧账号或无采购授权者进入 platform-positioning-benchmark。",
+      "abandon_when": ["把内容定位误当作采购任务", "把无采购权限用户强行导入创作者批量筛选"],
+      "retry": {"max_attempts": 2, "change_required": "调整目标或访问能力声明", "fallback": "并列交付两条路径的差异说明"}
+    },
+    {
+      "id": "handoff_package",
+      "title": "子 Loop 输入包与安全交接",
+      "type": "assistive",
+      "risk": "medium",
+      "depends_on": ["route_decision"],
+      "inputs": ["artifact:route_decision", "artifact:collection_boundary"],
+      "outputs": [{"name": "handoff_package", "required": true}, {"name": "next_loop_prompt", "required": true}],
+      "checks": [{"name": "minimal_inputs_listed", "required": true}, {"name": "unavailable_data_not_faked", "required": true}],
+      "completion": "生成下一条 Loop 的最小输入清单、明确缺口和可复制启动提示词。",
+      "abandon_when": ["交接包暗含未授权数据或未验证的算法权重"],
+      "retry": {"max_attempts": 2, "change_required": "移除未授权字段或降级输出", "fallback": "只交付入口判断报告"}
+    }
+  ],
+  "deliverables": ["identity-contract.md", "access-contract.md", "collection-boundary.md", "route-decision.md", "handoff-package.md", "next-loop-prompt.md"]
+}

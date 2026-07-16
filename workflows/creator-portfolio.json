@@ -1,21 +1,33 @@
 {
   "id": "creator-portfolio",
-  "version": "1.0.0",
-  "title": "创作者组合与采买方案",
+  "version": "1.1.0",
+  "title": "品牌创作者采购与预算组合",
   "audiences": ["营销传播", "PR", "新媒体运营", "产品GTM"],
   "job_stories": [
     "当我要在固定预算下选择合作创作者时，我希望每个入选理由可解释且预算守恒。",
+    "当我有授权的品牌采购入口时，我希望 Agent 先生成或记录合规候选快照，再筛选；没有采购权限时，应被路由到平台定位而不是被要求手工凑名单。",
     "当数据缺失或匹配歧义时，我希望保留待复核项而不是让 AI 猜测。"
   ],
   "inputs": [
+    {"name": "entry_assessment", "required": true, "rights_required": false, "formats": ["md", "json"], "description": "入口路由结论，确认本任务属于品牌/代理商创作者采购"},
+    {"name": "access_profile", "required": true, "rights_required": true, "formats": ["md", "json", "csv"], "description": "官方采购后台或授权导出/API的账号能力、用途、保留期和禁止动作"},
     {"name": "portfolio_brief", "required": true, "rights_required": false, "formats": ["md", "json"], "description": "目标、受众、币种、预算、税费、约束和禁用条件"},
-    {"name": "creator_data", "required": true, "rights_required": true, "formats": ["csv"], "description": "合规导出的候选数据"},
+    {"name": "creator_data", "required": false, "rights_required": true, "formats": ["csv"], "description": "已有的合规候选数据；没有时由后续候选快照阶段处理"},
     {"name": "data_rights", "required": true, "rights_required": true, "formats": ["json", "csv"], "description": "来源、允许字段、用途、保留期和授权状态"}
   ],
   "phases": [
     {
+      "id": "entry_route", "title": "采购资格、访问能力与采集边界", "type": "human", "risk": "critical",
+      "depends_on": [], "inputs": ["input:entry_assessment", "input:access_profile"],
+      "outputs": [{"name": "access_contract", "required": true}],
+      "checks": [{"name": "buyer_route_confirmed", "required": true}, {"name": "authorized_collection_only", "required": true}, {"name": "no_bulk_redistribution", "required": true}],
+      "completion": "确认用户以品牌/代理商采购方身份、在授权平台表面内工作；否则退出并进入 platform-positioning-benchmark。",
+      "abandon_when": ["用户没有采购权限", "计划绕过登录、验证码、接口范围或公开再分发受限账号数据"],
+      "retry": {"max_attempts": 2, "change_required": "补充授权或改走定位路径", "fallback": "交付路由说明，不筛选博主"}
+    },
+    {
       "id": "preflight", "title": "目标、预算与数据许可", "type": "assistive", "risk": "high",
-      "depends_on": [], "inputs": ["input:portfolio_brief", "input:creator_data", "input:data_rights"],
+      "depends_on": ["entry_route"], "inputs": ["input:portfolio_brief", "input:data_rights", "artifact:access_contract"],
       "outputs": [{"name": "scope_contract", "required": true}, {"name": "rights_ledger", "required": true}],
       "checks": [{"name": "budget_currency_tax", "required": true}, {"name": "allowed_fields_only", "required": true}, {"name": "no_sensitive_inference", "required": true}],
       "completion": "预算口径、允许字段与用途明确；未授权字段已隔离。",
@@ -23,8 +35,17 @@
       "retry": {"max_attempts": 2, "change_required": "补权利凭证或收窄字段", "fallback": "改用人工提供的最小候选表"}
     },
     {
+      "id": "candidate_snapshot", "title": "候选池获取或授权快照", "type": "assistive", "risk": "high",
+      "depends_on": ["preflight"], "inputs": ["artifact:scope_contract", "artifact:rights_ledger", "artifact:access_contract", "input:access_profile", "input:creator_data"],
+      "outputs": [{"name": "candidate_snapshot", "required": true}, {"name": "collection_audit", "required": true}],
+      "checks": [{"name": "source_and_time_recorded", "required": true}, {"name": "allowed_fields_only", "required": true}, {"name": "collection_boundary_respected", "required": true}],
+      "completion": "优先接收已有合规导出；没有时只生成由用户在其已授权系统中执行的导出规范。导入后的候选快照必须记录来源、时间、字段、许可、用途、保留期和私有位置。",
+      "abandon_when": ["无合规候选来源", "只能通过受限整库抓取或不明方法获得数据"],
+      "retry": {"max_attempts": 2, "change_required": "改用授权导出、缩小字段或补充人工最小样本", "fallback": "交付采集计划与缺口，不进入评分"}
+    },
+    {
       "id": "quality_profile", "title": "不可变快照与质量画像", "type": "assistive", "risk": "medium",
-      "depends_on": ["preflight"], "inputs": ["input:creator_data", "artifact:scope_contract"],
+      "depends_on": ["candidate_snapshot"], "inputs": ["artifact:candidate_snapshot", "artifact:scope_contract"],
       "outputs": [{"name": "quality_report", "required": true}, {"name": "duplicate_candidates", "required": true}],
       "checks": [{"name": "schema_known", "required": true}, {"name": "row_count_recorded", "required": true}, {"name": "missingness_threshold", "required": true}],
       "completion": "原表指纹、行数、缺失率、稳定键和重复候选均记录，未自动删除。",
@@ -41,8 +62,17 @@
       "retry": {"max_attempts": 2, "change_required": "改用边界规则、稳定 ID 或人工映射", "fallback": "歧义项全部进入人工队列"}
     },
     {
+      "id": "candidate_evidence", "title": "账号内容证据与场景复核", "type": "assistive", "risk": "high",
+      "depends_on": ["match_and_features"], "inputs": ["artifact:feature_table", "artifact:exception_queue", "artifact:collection_audit", "artifact:rights_ledger", "artifact:access_contract"],
+      "outputs": [{"name": "creator_evidence_ledger", "required": true}, {"name": "evidence_review_queue", "required": true}, {"name": "eligible_creator_pool", "required": true}],
+      "checks": [{"name": "final_candidates_have_content_evidence", "required": true}, {"name": "source_or_authorized_snapshot_recorded", "required": true}, {"name": "evidence_fields_permitted", "required": true}, {"name": "unreviewed_not_recommended", "required": true}],
+      "completion": "每个拟推荐候选均有来自允许来源的账号内容/近作证据、适配理由、时间与复核状态；证据不足者只能留在待复核池。",
+      "abandon_when": ["只能用聚合指标而无任何内容或场景证据", "证据来源超出授权范围"],
+      "retry": {"max_attempts": 2, "change_required": "补充允许的内容证据、收窄拟推荐池或改为待复核", "fallback": "只交付候选池与证据缺口，不给最终推荐"}
+    },
+    {
       "id": "calibration", "title": "规则、权重与样本校准", "type": "human", "risk": "high",
-      "depends_on": ["match_and_features"], "inputs": ["artifact:feature_table", "artifact:exception_queue"],
+      "depends_on": ["candidate_evidence"], "inputs": ["artifact:feature_table", "artifact:exception_queue", "artifact:creator_evidence_ledger", "artifact:evidence_review_queue"],
       "outputs": [{"name": "scoring_contract", "required": true}, {"name": "calibration_record", "required": true}],
       "checks": [{"name": "boundary_samples", "required": true}, {"name": "low_confidence_samples", "required": true}, {"name": "bias_review", "required": true}],
       "completion": "业务方批准规则、阈值和样本误差；AI 不自批评分标准。",
@@ -51,16 +81,16 @@
     },
     {
       "id": "portfolio", "title": "预算组合与情景模拟", "type": "assistive", "risk": "medium",
-      "depends_on": ["calibration"], "inputs": ["artifact:scoring_contract", "artifact:feature_table"],
+      "depends_on": ["calibration"], "inputs": ["artifact:scoring_contract", "artifact:feature_table", "artifact:eligible_creator_pool", "artifact:creator_evidence_ledger"],
       "outputs": [{"name": "portfolio_options", "required": true}, {"name": "budget_check", "required": true}],
-      "checks": [{"name": "budget_conservation", "required": true}, {"name": "constraints_satisfied", "required": true}, {"name": "exception_excluded", "required": true}],
+      "checks": [{"name": "budget_conservation", "required": true}, {"name": "constraints_satisfied", "required": true}, {"name": "exception_excluded", "required": true}, {"name": "only_evidence_approved_candidates", "required": true}],
       "completion": "至少一个组合满足含税费用、数量、上下限和禁用条件，且计算可复现。",
       "abandon_when": ["没有可行组合", "预算口径不守恒"],
       "retry": {"max_attempts": 2, "change_required": "显式调整约束或预算，不得偷偷放宽", "fallback": "输出不可行原因"}
     },
     {
       "id": "decision_review", "title": "最终业务复核", "type": "human", "risk": "high",
-      "depends_on": ["portfolio"], "inputs": ["artifact:portfolio_options", "artifact:budget_check"],
+      "depends_on": ["portfolio"], "inputs": ["artifact:portfolio_options", "artifact:budget_check", "artifact:creator_evidence_ledger", "artifact:evidence_review_queue"],
       "outputs": [{"name": "decision_record", "required": true}],
       "checks": [{"name": "rationale_reviewed", "required": true}, {"name": "rights_rechecked", "required": true}],
       "completion": "负责人选择、修改或拒绝组合，并记录理由。",
@@ -68,14 +98,14 @@
       "retry": {"max_attempts": 2, "change_required": "改变组合约束或回到校准", "fallback": "保留方案草稿，不生成外部写入"}
     },
     {
-      "id": "delivery", "title": "脱敏交付与动作预览", "type": "deterministic", "risk": "high",
-      "depends_on": ["decision_review"], "inputs": ["artifact:decision_record", "artifact:portfolio_options"],
+      "id": "delivery", "title": "脱敏交付与动作预览", "type": "assistive", "risk": "high",
+      "depends_on": ["decision_review"], "inputs": ["artifact:decision_record", "artifact:portfolio_options", "artifact:creator_evidence_ledger"],
       "outputs": [{"name": "portfolio_delivery", "required": true}, {"name": "action_manifest", "required": true}],
-      "checks": [{"name": "redaction_scan", "required": true}, {"name": "manifest_plan_only", "required": true}],
+      "checks": [{"name": "redaction_scan", "required": true}, {"name": "evidence_status_rendered", "required": true}, {"name": "manifest_plan_only", "required": true}],
       "completion": "交付物通过脱敏；外部系统操作只生成 plan_only manifest，未写入。",
       "abandon_when": ["公开物可反向识别私有来源", "manifest 缺少显式租户或目标"],
       "retry": {"max_attempts": 2, "change_required": "从允许字段重新重建", "fallback": "只保留本地私有结果"}
     }
   ],
-  "deliverables": ["quality-report.json", "feature-table.csv", "scoring-contract.json", "portfolio-options.csv", "decision.md", "action-manifest.json"]
+  "deliverables": ["collection-audit.md", "quality-report.json", "feature-table.csv", "creator-evidence-ledger.csv", "scoring-contract.json", "portfolio-options.csv", "decision.md", "action-manifest.json"]
 }
