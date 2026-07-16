@@ -35,6 +35,7 @@ python3 scripts/loopctl.py status --workspace ./my-first-run
 完整对照见 [CATALOG.zh-CN.md](CATALOG.zh-CN.md)，更短的命令说明见 [QUICKSTART.zh-CN.md](QUICKSTART.zh-CN.md)。
 四类人群怎样组合现有 Loop，见 [docs/四类人群组合场景.md](docs/四类人群组合场景.md)。
 平台创作者战略的入口与证据边界见 [docs/平台创作者战略架构.md](docs/平台创作者战略架构.md)。
+官方备案原文遇到空白预览时，先读 [docs/平台机制证据阅读说明.md](docs/平台机制证据阅读说明.md)。
 
 ## 默认安全边界
 
